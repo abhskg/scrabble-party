@@ -10,6 +10,7 @@ export function BigScreen() {
   const snapshot = useGame(s => s.snapshot);
   const hostToken = useGame(s => s.hostToken);
   const startGame = useGame(s => s.startGame);
+  const hostSkip = useGame(s => s.hostSkip);
   const [error, setError] = useState('');
   if (!snapshot) return <div className="display" style={{ padding: 40 }}>Setting up…</div>;
 
@@ -82,6 +83,11 @@ export function BigScreen() {
           </div>
         )}
         <div className="card">🎒 Bag: {snapshot.bagCount} tiles</div>
+        {hostToken && (
+          <button className="btn" onClick={() => hostSkip()}>
+            {snapshot.phase === 'voting' ? '⏭️ Close vote' : '⏭️ Skip turn'}
+          </button>
+        )}
       </div>
       <VoteSheet />
     </div>

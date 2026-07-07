@@ -39,6 +39,7 @@ export interface ClientToServer {
   'move:takeback': (p: { code: string; token: string }, cb: (res: { ok: boolean; error?: string }) => void) => void;
   'challenge:start': (p: { code: string; token: string }, cb: (res: { ok: boolean; error?: string }) => void) => void;
   'vote:cast': (p: { code: string; token: string; allow: boolean }, cb: (res: { ok: boolean; error?: string }) => void) => void;
+  'host:skip': (p: { code: string; hostToken: string }, cb: (res: { ok: boolean; error?: string }) => void) => void;
 }
 
 export interface ServerToClient {

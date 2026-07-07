@@ -3,6 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 import type { ClientSnapshot, GameSettings, Placement } from '@scrabble/shared';
 
 interface SavedSeat { code: string; token: string; playerId: string }
+interface SavedHost { code: string; hostToken?: string }
 
 interface GameStore {
   socket: Socket | null;
@@ -23,13 +24,19 @@ interface GameStore {
   takeBack(): Promise<{ ok: boolean; error?: string }>;
   challenge(): Promise<{ ok: boolean; error?: string }>;
   vote(allow: boolean): Promise<{ ok: boolean; error?: string }>;
+  hostSkip(): Promise<{ ok: boolean; error?: string }>;
   clearToast(): void;
 }
 
 const SEAT_KEY = 'scrabble-seat';
+const HOST_KEY = 'scrabble-host';
 const loadSeat = (): SavedSeat | null => {
   try { return JSON.parse(localStorage.getItem(SEAT_KEY) ?? 'null'); } catch { return null; }
 };
+const loadHost = (): SavedHost | null => {
+  try { return JSON.parse(localStorage.getItem(HOST_KEY) ?? 'null'); } catch { return null; }
+};
+const saveHost = (saved: SavedHost) => localStorage.setItem(HOST_KEY, JSON.stringify(saved));
 
 export const useGame = create<GameStore>((set, get) => {
   const ask = <T>(event: string, payload?: unknown): Promise<T> =>
@@ -58,6 +65,17 @@ export const useGame = create<GameStore>((set, get) => {
             else localStorage.removeItem(SEAT_KEY);
           });
         }
+        // Big-screen / host session: re-subscribe to the watch room after any
+        // reconnect (Wi-Fi blip) or on a fresh page load, so the host tab
+        // never goes stale. Harmless alongside a player-seat reconnect above —
+        // the server just adds this socket to the room's watch broadcast.
+        const savedHost = loadHost();
+        if (savedHost) {
+          socket.emit('room:watch', { code: savedHost.code }, (res: { ok: boolean }) => {
+            if (res.ok) set({ roomCode: savedHost.code, hostToken: savedHost.hostToken ?? null });
+            else localStorage.removeItem(HOST_KEY);
+          });
+        }
       });
       set({ socket });
     },
@@ -65,6 +83,7 @@ export const useGame = create<GameStore>((set, get) => {
     async createRoom(settings) {
       const res = await ask<{ code: string; hostToken: string }>('room:create', settings);
       set({ roomCode: res.code, hostToken: res.hostToken });
+      saveHost({ code: res.code, hostToken: res.hostToken });
       return res.code;
     },
 
@@ -81,7 +100,10 @@ export const useGame = create<GameStore>((set, get) => {
 
     async watchRoom(code) {
       const res = await ask<{ ok: boolean }>('room:watch', { code });
-      if (res.ok) set({ roomCode: code });
+      if (res.ok) {
+        set({ roomCode: code });
+        saveHost({ code, hostToken: get().hostToken ?? undefined });
+      }
       return res.ok;
     },
 
@@ -92,6 +114,7 @@ export const useGame = create<GameStore>((set, get) => {
     takeBack: () => ask('move:takeback', seatArgs()),
     challenge: () => ask('challenge:start', seatArgs()),
     vote: allow => ask('vote:cast', { ...seatArgs(), allow }),
+    hostSkip: () => ask('host:skip', { code: get().roomCode!, hostToken: get().hostToken! }),
     clearToast: () => set({ toast: null }),
   };
 });

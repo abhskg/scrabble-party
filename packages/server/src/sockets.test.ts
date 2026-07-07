@@ -258,4 +258,107 @@ describe('socket flow', () => {
     expect(finalSnap.phase).toBe('playing');
     expect(finalSnap.pendingVote).toBeNull();
   });
+
+  it('host:skip rejects a wrong hostToken', async () => {
+    const host = await connect();
+    const { code, hostToken } = await emit<{ code: string; hostToken: string }>(host, 'room:create', settings);
+
+    const amy = await connect();
+    const ben = await connect();
+    await emit<{ ok: true; playerId: string; token: string }>(amy, 'room:join', { code, name: 'Amy7', avatar: '🦊' });
+    await emit<{ ok: true; playerId: string; token: string }>(ben, 'room:join', { code, name: 'Ben7', avatar: '🐸' });
+
+    const amyStatePromise = waitForPhase(amy, 'playing');
+    const benStatePromise = waitForPhase(ben, 'playing');
+    await emit(host, 'game:start', { code, hostToken });
+    await Promise.all([amyStatePromise, benStatePromise]);
+
+    const res = await emit<{ ok: boolean; error?: string }>(host, 'host:skip', { code, hostToken: 'garbage' });
+    expect(res.ok).toBe(false);
+    expect(res.error).toBeTruthy();
+  });
+
+  it('host:skip during "playing" force-passes the current player and advances the turn', async () => {
+    const host = await connect();
+    const { code, hostToken } = await emit<{ code: string; hostToken: string }>(host, 'room:create', settings);
+
+    const amy = await connect();
+    const ben = await connect();
+    const joinA = await emit<{ ok: true; playerId: string; token: string }>(amy, 'room:join', { code, name: 'Amy8', avatar: '🦊' });
+    const joinB = await emit<{ ok: true; playerId: string; token: string }>(ben, 'room:join', { code, name: 'Ben8', avatar: '🐸' });
+
+    const amyStatePromise = waitForPhase(amy, 'playing');
+    const benStatePromise = waitForPhase(ben, 'playing');
+    await emit(host, 'game:start', { code, hostToken });
+    const [amySnap] = await Promise.all([amyStatePromise, benStatePromise]);
+
+    const currentPlayerId = amySnap.currentPlayerId;
+    const nextExpected = currentPlayerId === joinA.playerId ? joinB.playerId : joinA.playerId;
+
+    const nextTurnPromise = new Promise<ClientSnapshot>(resolve => {
+      const handler = (snap: ClientSnapshot) => {
+        if (snap.phase === 'playing' && snap.currentPlayerId === nextExpected) {
+          amy.off('game:state', handler);
+          resolve(snap);
+        }
+      };
+      amy.on('game:state', handler);
+    });
+
+    const res = await emit<{ ok: boolean; error?: string }>(host, 'host:skip', { code, hostToken });
+    expect(res.ok).toBe(true);
+    const afterSkip = await nextTurnPromise;
+    expect(afterSkip.currentPlayerId).toBe(nextExpected);
+    expect(afterSkip.consecutivePasses).toBe(1);
+  });
+
+  it('host:skip during a vote resolves it using only connected voters and returns to "playing"', async () => {
+    const host = await connect();
+    const { code, hostToken } = await emit<{ code: string; hostToken: string }>(host, 'room:create', settings);
+
+    const amy = await connect();
+    const ben = await connect();
+    const cy = await connect();
+    const joinA = await emit<{ ok: true; playerId: string; token: string }>(amy, 'room:join', { code, name: 'Amy9', avatar: '🦊' });
+    const joinB = await emit<{ ok: true; playerId: string; token: string }>(ben, 'room:join', { code, name: 'Ben9', avatar: '🐸' });
+    await emit<{ ok: true; playerId: string; token: string }>(cy, 'room:join', { code, name: 'Cy9', avatar: '🐼' });
+
+    const amyStatePromise = waitForPhase(amy, 'playing');
+    const benStatePromise = waitForPhase(ben, 'playing');
+    const cyStatePromise = waitForPhase(cy, 'playing');
+    await emit(host, 'game:start', { code, hostToken });
+    const [amySnap, benSnap] = await Promise.all([amyStatePromise, benStatePromise, cyStatePromise]);
+
+    const current = amySnap.currentPlayerId === joinA.playerId
+      ? { sock: amy, token: joinA.token, snap: amySnap }
+      : { sock: ben, token: joinB.token, snap: benSnap };
+    const other = current.sock === amy ? ben : amy;
+    const rack = current.snap.players.find(p => p.id === current.snap.currentPlayerId)!.rack!;
+    const placements = rack.slice(0, 2).map((tile, i) => ({
+      tile: tile.isBlank ? { ...tile, assignedLetter: 'E' } : tile, row: 7, col: 7 + i,
+    }));
+    await emit<{ ok: boolean; error?: string }>(current.sock, 'move:play', { code, token: current.token, placements });
+
+    const otherChallengerId = current.sock === amy ? joinB.playerId : joinA.playerId;
+    const nextAfterChallenge = waitForPhase(cy, 'voting');
+    // The non-mover challenges the word to start a vote.
+    const otherToken = current.sock === amy ? joinB.token : joinA.token;
+    await emit<{ ok: boolean; error?: string }>(other, 'challenge:start', { code, token: otherToken });
+    const votingSnap = await nextAfterChallenge;
+    expect(votingSnap.phase).toBe('voting');
+    expect(votingSnap.pendingVote?.eligibleVoterIds).toContain(otherChallengerId);
+
+    // Cy (an eligible voter) disconnects without voting; wait for the disconnect
+    // broadcast (still phase 'voting') to land before force-closing the vote.
+    const disconnectBroadcast = waitForPhase(other, 'voting');
+    cy.disconnect();
+    await disconnectBroadcast;
+
+    const backToPlayingPromise = waitForPhase(other, 'playing');
+    const skipRes = await emit<{ ok: boolean; error?: string }>(host, 'host:skip', { code, hostToken });
+    expect(skipRes.ok).toBe(true);
+    const finalSnap = await backToPlayingPromise;
+    expect(finalSnap.phase).toBe('playing');
+    expect(finalSnap.pendingVote).toBeNull();
+  });
 });

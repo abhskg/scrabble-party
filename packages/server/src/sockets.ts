@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import {
-  createGame, findWordsFormed, startChallenge, startOverrideVote, castVote, MODES,
+  createGame, findWordsFormed, startChallenge, startOverrideVote, castVote, applyPass, resolveVoteWith, MODES,
   type GameSettings, type Placement,
 } from '@scrabble/shared';
 import { RoomManager, type Room, type Seat } from './rooms.js';
@@ -146,6 +146,39 @@ export function registerSockets(io: Server, rooms: RoomManager, dict: Set<string
         room.game = res.state;
         return { ok: true };
       }));
+
+    socket.on('host:skip', ({ code, hostToken }: { code: string; hostToken: string }, cb) => {
+      const room = rooms.getRoom(code);
+      if (!room || room.hostToken !== hostToken) return cb({ ok: false, error: 'Not the host.' });
+      const g = room.game;
+      if (!g) return cb({ ok: false, error: 'Not in a running game.' });
+
+      if (g.phase === 'playing') {
+        const current = g.players[g.currentPlayerIndex];
+        const res = applyPass(g, current.id);
+        if (!res.ok) return cb({ ok: false, error: res.reason });
+        room.game = res.state;
+        cb({ ok: true });
+        io.to(watchRoom(room.code)).emit('game:toast', { kind: 'info', text: 'Host skipped the turn.' });
+        broadcast(room);
+        return;
+      }
+
+      if (g.phase === 'voting') {
+        const connectedIds = new Set(
+          room.seats.filter(s => s.socketId !== null).map(s => s.playerId),
+        );
+        const res = resolveVoteWith(g, connectedIds);
+        if (!res.ok) return cb({ ok: false, error: res.reason });
+        room.game = res.state;
+        cb({ ok: true });
+        io.to(watchRoom(room.code)).emit('game:toast', { kind: 'info', text: 'Host closed the vote.' });
+        broadcast(room);
+        return;
+      }
+
+      cb({ ok: false, error: 'Nothing to skip right now.' });
+    });
 
     socket.on('disconnect', () => {
       // Mark any seat bound to this socket as away.

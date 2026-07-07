@@ -41,6 +41,22 @@ export function startOverrideVote(
   };
 }
 
+function resolveVote(state: GameState, votes: Record<string, boolean>, eligibleIds: string[]): EngineResult {
+  const vote = state.pendingVote!;
+  const allowCount = Object.values(votes).filter(Boolean).length;
+  // tie (and no-votes-at-all) -> allow (leniency)
+  const allowed = eligibleIds.length === 0 || allowCount * 2 >= eligibleIds.length;
+  const base: GameState = { ...state, phase: 'playing', pendingVote: null };
+
+  if (vote.kind === 'challenge') {
+    return { ok: true, state: allowed ? base : retractLastMove(base) };
+  }
+  // override
+  if (!allowed) return { ok: true, state: base }; // move dropped, same player's turn
+  const played = applyPlay(base, vote.targetPlayerId, vote.pendingPlacements ?? []);
+  return played.ok ? played : { ok: true, state: base };
+}
+
 export function castVote(state: GameState, voterId: string, allow: boolean): EngineResult {
   const vote = state.pendingVote;
   if (state.phase !== 'voting' || !vote) return fail('No vote in progress.');
@@ -51,15 +67,18 @@ export function castVote(state: GameState, voterId: string, allow: boolean): Eng
     return { ok: true, state: { ...state, pendingVote: { ...vote, votes } } };
   }
 
-  const allowCount = Object.values(votes).filter(Boolean).length;
-  const allowed = allowCount * 2 >= vote.eligibleVoterIds.length; // tie -> allow (leniency)
-  const base: GameState = { ...state, phase: 'playing', pendingVote: null };
+  return resolveVote(state, votes, vote.eligibleVoterIds);
+}
 
-  if (vote.kind === 'challenge') {
-    return { ok: true, state: allowed ? base : retractLastMove(base) };
-  }
-  // override
-  if (!allowed) return { ok: true, state: base }; // move dropped, same player's turn
-  const played = applyPlay(base, vote.targetPlayerId, vote.pendingPlacements ?? []);
-  return played.ok ? played : { ok: true, state: base };
+/**
+ * Host-triggered "close the vote now" escape hatch: any eligible voter who is
+ * currently disconnected and hasn't voted yet is dropped from the eligible
+ * pool so the vote resolves on whoever is actually present. If nobody
+ * connected has voted at all, default to allow (leniency).
+ */
+export function resolveVoteWith(state: GameState, connectedVoterIds: Set<string>): EngineResult {
+  const vote = state.pendingVote;
+  if (state.phase !== 'voting' || !vote) return fail('No vote in progress.');
+  const eligibleIds = vote.eligibleVoterIds.filter(id => connectedVoterIds.has(id) || id in vote.votes);
+  return resolveVote(state, vote.votes, eligibleIds);
 }
