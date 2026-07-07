@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGame } from './store';
 import { JoinScreen } from './screens/JoinScreen';
 import { Lobby } from './screens/Lobby';
+import { PlayerScreen } from './screens/PlayerScreen';
 
 function useHashRoute(): string {
   const [hash, setHash] = useState(window.location.hash || '#/');
@@ -23,5 +24,5 @@ export default function App() {
   if (route.startsWith('#/host')) return <div className="display">Host view (Task 13)</div>;
   if (!playerId || !snapshot) return <JoinScreen />;
   if (snapshot.phase === 'lobby') return <Lobby />;
-  return <div className="display">Player view (Task 12)</div>;
+  return <PlayerScreen />;
 }
