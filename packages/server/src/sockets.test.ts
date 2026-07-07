@@ -220,4 +220,42 @@ describe('socket flow', () => {
     expect(finalSnap.phase).toBe('playing');
     expect(finalSnap.pendingVote).toBeNull();
   });
+
+  it('override mode: a fabricated placement (tile not in rack) is rejected, not put to a vote', async () => {
+    const host = await connect();
+    const overrideSettings: GameSettings = { dictionaryMode: 'override', takeBacks: true, freeSwaps: 'off', freeSwapLimit: 0 };
+    const { code, hostToken } = await emit<{ code: string; hostToken: string }>(host, 'room:create', overrideSettings);
+
+    const amy = await connect();
+    const ben = await connect();
+    const joinA = await emit<{ ok: true; playerId: string; token: string }>(amy, 'room:join', { code, name: 'Amy6', avatar: '🦊' });
+    const joinB = await emit<{ ok: true; playerId: string; token: string }>(ben, 'room:join', { code, name: 'Ben6', avatar: '🐸' });
+
+    const amyStatePromise = waitForPhase(amy, 'playing');
+    const benStatePromise = waitForPhase(ben, 'playing');
+    await emit(host, 'game:start', { code, hostToken });
+    const [amySnap, benSnap] = await Promise.all([amyStatePromise, benStatePromise]);
+
+    const current = amySnap.currentPlayerId === joinA.playerId
+      ? { sock: amy, token: joinA.token }
+      : { sock: ben, token: joinB.token };
+
+    // Fabricated tile IDs not in the current player's rack, forming a gibberish word.
+    const placements = [
+      { tile: { id: 'fabricated-1', letter: 'Z', value: 10, isBlank: false }, row: 7, col: 7 },
+      { tile: { id: 'fabricated-2', letter: 'Z', value: 10, isBlank: false }, row: 7, col: 8 },
+    ];
+
+    const played = await emit<{ ok: boolean; error?: string }>(current.sock, 'move:play',
+      { code, token: current.token, placements });
+    expect(played.ok).toBe(false);
+    expect(played.error).toBeTruthy();
+
+    // Room must remain in 'playing' phase — no vote was started.
+    const statePromise = nextState(current.sock); // register before emitting: ack + push race on the same socket
+    await emit(current.sock, 'room:reconnect', { code, token: current.token });
+    const finalSnap = await statePromise;
+    expect(finalSnap.phase).toBe('playing');
+    expect(finalSnap.pendingVote).toBeNull();
+  });
 });

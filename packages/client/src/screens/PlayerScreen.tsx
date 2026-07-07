@@ -106,7 +106,7 @@ export function PlayerScreen() {
             <button className="btn ghost" disabled={staged.length === 0} onClick={() => setStaged([])}>Clear</button>
             <button className="btn" disabled={!myTurn} onClick={() => setMode('swap')}>Swap 🔄</button>
             <button className="btn ghost" disabled={!myTurn} onClick={() => act(pass)}>Pass 😴</button>
-            {snapshot.settings.takeBacks && snapshot.lastMove?.playerId === playerId && (
+            {snapshot.phase === 'playing' && snapshot.settings.takeBacks && snapshot.lastMove?.playerId === playerId && (
               <button className="btn ghost" onClick={() => act(takeBack)}>Undo ↩️</button>
             )}
             {snapshot.settings.dictionaryMode === 'off' && snapshot.lastMove && snapshot.lastMove.playerId !== playerId && (

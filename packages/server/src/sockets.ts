@@ -87,11 +87,10 @@ export function registerSockets(io: Server, rooms: RoomManager, dict: Set<string
         const mode = MODES[room.modeId];
         const g = room.game!;
         if (room.settings.dictionaryMode === 'override') {
-          if (g.players[g.currentPlayerIndex].id !== seat.playerId) {
-            return { ok: false, reason: 'Not your turn.' };
-          }
-          const pre = mode.validateMove(g, seat.playerId, placements);
-          if (!pre.ok) return pre;
+          // Dry-run the full move first: this covers turn, rack ownership, blanks, and
+          // geometry. Only a move that would actually apply is eligible for an override vote.
+          const dryRun = mode.play(g, seat.playerId, placements);
+          if (!dryRun.ok) return dryRun;
           const words = findWordsFormed(g.board, placements);
           const bad = words.find(w => !isWordValid(dict, w.word));
           if (bad) {
@@ -99,6 +98,8 @@ export function registerSockets(io: Server, rooms: RoomManager, dict: Set<string
             io.to(socket.id).emit('game:toast', { kind: 'info', text: `"${bad.word}" isn't in the dictionary — group vote started!` });
             return { ok: true };
           }
+          room.game = dryRun.state;
+          return { ok: true };
         }
         const res = mode.play(g, seat.playerId, placements);
         if (!res.ok) return res;

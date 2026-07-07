@@ -66,6 +66,33 @@ describe('engine', () => {
     expect(applyTakeBack(played.state, 'p2').ok).toBe(false);
   });
 
+  it('take-back rejected during a challenge/override vote', () => {
+    const g = createGame(players, settings, () => 0.42);
+    const played = applyPlay(g, 'p1', firstMovePlacements(g, 3));
+    if (!played.ok) throw new Error(played.reason);
+    const voting: GameState = {
+      ...played.state,
+      phase: 'voting',
+      pendingVote: {
+        kind: 'challenge',
+        word: played.state.lastMove!.words[0] ?? '',
+        targetPlayerId: 'p1',
+        votes: {},
+        eligibleVoterIds: ['p2'],
+      },
+    };
+    expect(applyTakeBack(voting, 'p1').ok).toBe(false);
+  });
+
+  it('take-back rejected after the game has ended; finalizeGame clears lastMove', () => {
+    const g = createGame(players, settings, () => 0.42);
+    const played = applyPlay(g, 'p1', firstMovePlacements(g, 3));
+    if (!played.ok) throw new Error(played.reason);
+    const ended = finalizeGame(played.state);
+    expect(ended.lastMove).toBeNull();
+    expect(applyTakeBack(ended, 'p1').ok).toBe(false);
+  });
+
   it('free swap keeps the turn; standard swap consumes it', () => {
     const g = createGame(players, settings, () => 0.42);
     const free = applySwap(g, 'p1', g.players[0].rack.slice(0, 2).map(t => t.id));

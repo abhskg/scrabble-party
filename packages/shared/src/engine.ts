@@ -147,6 +147,7 @@ export function retractLastMove(state: GameState): GameState {
 }
 
 export function applyTakeBack(state: GameState, playerId: string): EngineResult {
+  if (state.phase !== 'playing') return fail('Take-backs are only allowed during play.');
   if (!state.settings.takeBacks) return fail('Take-backs are disabled.');
   if (!state.lastMove || state.lastMove.playerId !== playerId) return fail('Nothing to take back.');
   const moverIdx = state.players.findIndex(p => p.id === playerId);
@@ -164,7 +165,7 @@ export function finalizeGame(state: GameState): GameState {
   });
   const top = Math.max(...players.map(p => p.score));
   return {
-    ...state, players, phase: 'ended',
+    ...state, players, phase: 'ended', lastMove: null,
     winnerIds: players.filter(p => p.score === top).map(p => p.id),
   };
 }
