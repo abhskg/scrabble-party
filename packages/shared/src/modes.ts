@@ -15,7 +15,11 @@ export const ClassicMode: GameMode = {
   id: 'classic',
   validateMove(state, _playerId, placements) {
     const v = validatePlacement(state.board, placements);
-    return v.ok ? { ok: true, state } : { ok: false, reason: v.reason };
+    if (v.ok === true) {
+      return { ok: true, state };
+    }
+    const vFailed = v as { ok: false; reason: string };
+    return { ok: false, reason: vFailed.reason };
   },
   play: applyPlay,
   swap: applySwap,

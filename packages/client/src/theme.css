@@ -1,0 +1,62 @@
+:root {
+  --bg: #fdf6e3;
+  --bg-board: #8ecfb0;
+  --tile: #ffd97a;
+  --tile-edge: #e0a839;
+  --ink: #3d2b1f;
+  --pop-pink: #ff6b9d;
+  --pop-blue: #4dabf7;
+  --pop-purple: #9775fa;
+  --prem-dl: #a5d8ff;
+  --prem-tl: #4dabf7;
+  --prem-dw: #ffc9de;
+  --prem-tw: #ff6b9d;
+  --radius: 14px;
+  --shadow: 0 4px 0 rgba(61, 43, 31, 0.25);
+  --font-display: 'Comic Sans MS', 'Chalkboard SE', 'Segoe Print', system-ui, sans-serif;
+  --font-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body, #root { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overscroll-behavior: none;
+}
+h1, h2, h3, .display { font-family: var(--font-display); }
+
+.btn {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 0.6rem 1.2rem;
+  background: var(--pop-blue);
+  color: white;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+.btn:active { transform: translateY(3px); box-shadow: none; }
+.btn.primary { background: var(--pop-pink); }
+.btn.ghost { background: white; color: var(--ink); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+.card {
+  background: white;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+input.jolly {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  width: 100%;
+}
