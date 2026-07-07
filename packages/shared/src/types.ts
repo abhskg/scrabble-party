@@ -37,6 +37,7 @@ export interface PendingVote {
   targetPlayerId: string;      // player whose move is in question
   votes: Record<string, boolean>; // voterId -> allow?
   eligibleVoterIds: string[];
+  pendingPlacements?: Placement[];
 }
 
 export interface LastMove {
