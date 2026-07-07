@@ -37,4 +37,24 @@ describe('snapshotFor', () => {
     const snap = snapshotFor(room, null);
     expect(snap.players.every(p => p.rack === null && p.rackCount === 7)).toBe(true);
   });
+
+  it('strips drawnTileIds from lastMove for everyone, including the mover', () => {
+    const { room, aId, bId } = makeStartedRoom();
+    room.game!.lastMove = {
+      playerId: aId,
+      placements: [],
+      score: 12,
+      words: ['CAT'],
+      drawnTileIds: ['t0', 't1', 't2'],
+    };
+    const snapForMover = snapshotFor(room, aId);
+    const snapForOther = snapshotFor(room, bId);
+    const snapForSpectator = snapshotFor(room, null);
+    expect(snapForMover.lastMove).not.toBeNull();
+    expect((snapForMover.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect((snapForOther.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect((snapForSpectator.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect(snapForMover.lastMove?.score).toBe(12);
+    expect(snapForMover.lastMove?.words).toEqual(['CAT']);
+  });
 });
