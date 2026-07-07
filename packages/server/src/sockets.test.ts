@@ -182,4 +182,42 @@ describe('socket flow', () => {
     expect(followUp.phase).toBe('voting');
     expect(followUp.pendingVote).not.toBeNull();
   });
+
+  it('override mode: out-of-turn player cannot hijack the turn into a vote', async () => {
+    const host = await connect();
+    const overrideSettings: GameSettings = { dictionaryMode: 'override', takeBacks: true, freeSwaps: 'off', freeSwapLimit: 0 };
+    const { code, hostToken } = await emit<{ code: string; hostToken: string }>(host, 'room:create', overrideSettings);
+
+    const amy = await connect();
+    const ben = await connect();
+    const joinA = await emit<{ ok: true; playerId: string; token: string }>(amy, 'room:join', { code, name: 'Amy5', avatar: '🦊' });
+    const joinB = await emit<{ ok: true; playerId: string; token: string }>(ben, 'room:join', { code, name: 'Ben5', avatar: '🐸' });
+
+    const amyStatePromise = waitForPhase(amy, 'playing');
+    const benStatePromise = waitForPhase(ben, 'playing');
+    await emit(host, 'game:start', { code, hostToken });
+    const [amySnap, benSnap] = await Promise.all([amyStatePromise, benStatePromise]);
+
+    // The player NOT holding the turn.
+    const notCurrent = amySnap.currentPlayerId === joinA.playerId
+      ? { sock: ben, token: joinB.token, snap: benSnap }
+      : { sock: amy, token: joinA.token, snap: amySnap };
+    const rack = notCurrent.snap.players.find(p => p.rack !== null)!.rack!;
+    // Build a two-letter placement extremely unlikely to be a real word (dict is small: only CAT, DOG valid).
+    const placements = rack.slice(0, 2).map((tile, i) => ({
+      tile: tile.isBlank ? { ...tile, assignedLetter: 'Z' } : tile, row: 7, col: 7 + i,
+    }));
+
+    const res = await emit<{ ok: boolean; error?: string }>(notCurrent.sock, 'move:play',
+      { code, token: notCurrent.token, placements });
+    expect(res.ok).toBe(false);
+    expect(res.error).toBeTruthy();
+
+    // Room must remain in 'playing' phase — no vote was started.
+    const statePromise = nextState(notCurrent.sock); // register before emitting: ack + push race on the same socket
+    await emit(notCurrent.sock, 'room:reconnect', { code, token: notCurrent.token });
+    const finalSnap = await statePromise;
+    expect(finalSnap.phase).toBe('playing');
+    expect(finalSnap.pendingVote).toBeNull();
+  });
 });

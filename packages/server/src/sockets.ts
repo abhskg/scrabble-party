@@ -87,6 +87,9 @@ export function registerSockets(io: Server, rooms: RoomManager, dict: Set<string
         const mode = MODES[room.modeId];
         const g = room.game!;
         if (room.settings.dictionaryMode === 'override') {
+          if (g.players[g.currentPlayerIndex].id !== seat.playerId) {
+            return { ok: false, reason: 'Not your turn.' };
+          }
           const pre = mode.validateMove(g, seat.playerId, placements);
           if (!pre.ok) return pre;
           const words = findWordsFormed(g.board, placements);
