@@ -61,7 +61,10 @@ export function applyPlay(state: GameState, playerId: string, placements: Placem
   const next: GameState = {
     ...state, board, bag, players,
     consecutivePasses: 0,
-    lastMove: { playerId, placements, score: total, words: words.map(w => w.word) },
+    lastMove: {
+      playerId, placements, score: total, words: words.map(w => w.word),
+      drawnTileIds: drawn.map(t => t.id),
+    },
     currentPlayerIndex: nextIndex(state),
   };
 
@@ -92,7 +95,7 @@ export function applySwap(state: GameState, playerId: string, tileIds: string[])
 
   const players = state.players.map((p, i) =>
     i === idx
-      ? { ...p, rack: [...p.rack.filter(t => !ids.has(t.id)), ...drawn], swapsUsed: p.swapsUsed + 1 }
+      ? { ...p, rack: [...p.rack.filter(t => !ids.has(t.id)), ...drawn], swapsUsed: p.swapsUsed + (isFree ? 1 : 0) }
       : p,
   );
 
@@ -132,14 +135,15 @@ export function retractLastMove(state: GameState): GameState {
   );
   const moverIdx = state.players.findIndex(p => p.id === move.playerId);
   const mover = state.players[moverIdx];
-  // Give back the played tiles; return the same number of drawn tiles to the bag.
-  const drawnCount = returned.length;
-  const giveBack = mover.rack.slice(mover.rack.length - drawnCount);
-  const keep = mover.rack.slice(0, mover.rack.length - drawnCount);
+  // Give back the played tiles; return exactly the tiles that were drawn to refill the rack
+  // (may be fewer than placed, if the bag underflowed during the play).
+  const drawnIds = new Set(move.drawnTileIds ?? []);
+  const giveBack = mover.rack.filter(t => drawnIds.has(t.id));
+  const keep = mover.rack.filter(t => !drawnIds.has(t.id));
   const players = state.players.map((p, i) =>
     i === moverIdx ? { ...p, rack: [...keep, ...returned], score: p.score - move.score } : p,
   );
-  return { ...state, board, players, bag: [...state.bag, ...giveBack], lastMove: null };
+  return { ...state, board, players, bag: [...giveBack, ...state.bag], lastMove: null };
 }
 
 export function applyTakeBack(state: GameState, playerId: string): EngineResult {

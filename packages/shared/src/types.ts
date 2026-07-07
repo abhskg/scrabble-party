@@ -44,6 +44,8 @@ export interface LastMove {
   placements: Placement[];
   score: number;
   words: string[];
+  /** IDs of tiles drawn from the bag to refill the rack after this move. */
+  drawnTileIds?: string[];
 }
 
 export interface GameState {

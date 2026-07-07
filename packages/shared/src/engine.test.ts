@@ -89,6 +89,34 @@ describe('engine', () => {
     expect(two.state.currentPlayerIndex).toBe(1); // second swap is no longer free
   });
 
+  it('take-back restores the rack correctly when the bag underflowed during the play', () => {
+    const g = createGame(players, settings, () => 0.42);
+    const scarceBag = g.bag.slice(0, 1); // only 1 tile left, player will place 2
+    const s: GameState = { ...g, bag: scarceBag };
+    const placements = firstMovePlacements(s, 2);
+    const played = applyPlay(s, 'p1', placements);
+    if (!played.ok) throw new Error(played.reason);
+    // Bag underflowed: only 1 tile was available to draw for 2 placed.
+    expect(played.state.players[0].rack).toHaveLength(6);
+    expect(played.state.bag).toHaveLength(0);
+    const undone = applyTakeBack(played.state, 'p1');
+    if (!undone.ok) throw new Error(undone.reason);
+    expect(undone.state.players[0].rack.map(t => t.id).sort())
+      .toEqual(g.players[0].rack.map(t => t.id).sort());
+    expect(undone.state.bag.map(t => t.id).sort()).toEqual(scarceBag.map(t => t.id).sort());
+  });
+
+  it('paid swaps do not increment swapsUsed', () => {
+    const lim = { ...settings, freeSwaps: 'limited' as const, freeSwapLimit: 1 };
+    const g = createGame(players, lim, () => 0.42);
+    const one = applySwap(g, 'p1', [g.players[0].rack[0].id]);
+    if (!one.ok) throw new Error(one.reason);
+    expect(one.state.players[0].swapsUsed).toBe(1); // free swap consumed
+    const two = applySwap(one.state, 'p1', [one.state.players[0].rack[0].id]);
+    if (!two.ok) throw new Error(two.reason);
+    expect(two.state.players[0].swapsUsed).toBe(1); // paid swap: unchanged
+  });
+
   it('game ends after everyone passes twice in a row', () => {
     const g = createGame(players, settings, () => 0.42);
     let s = g;
