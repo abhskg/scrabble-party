@@ -45,6 +45,10 @@ export class RoomManager {
     return this.rooms.get(code.toUpperCase());
   }
 
+  allRooms(): Room[] {
+    return [...this.rooms.values()];
+  }
+
   joinRoom(code: string, name: string, avatar: string): { seat: Seat } | { error: string } {
     const room = this.getRoom(code);
     if (!room) return { error: 'Room not found.' };

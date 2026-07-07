@@ -1,32 +1,5 @@
-import type { GamePhase, GameSettings, PendingVote, LastMove, Cell, Tile } from '@scrabble/shared';
+import type { ClientSnapshot } from '@scrabble/shared';
 import type { Room } from './rooms.js';
-
-export interface SnapshotPlayer {
-  id: string;
-  name: string;
-  avatar: string;
-  score: number;
-  connected: boolean;
-  rack: Tile[] | null;   // only for the recipient
-  rackCount: number;
-  swapsUsed: number;
-}
-
-export interface ClientSnapshot {
-  roomCode: string;
-  modeId: string;
-  settings: GameSettings;
-  phase: GamePhase | 'lobby';
-  seats: { playerId: string; name: string; avatar: string; connected: boolean }[];
-  board: Cell[][] | null;
-  players: SnapshotPlayer[];
-  currentPlayerId: string | null;
-  bagCount: number;
-  consecutivePasses: number;
-  lastMove: LastMove | null;
-  pendingVote: PendingVote | null;
-  winnerIds: string[];
-}
 
 export function snapshotFor(room: Room, playerId: string | null): ClientSnapshot {
   const g = room.game;

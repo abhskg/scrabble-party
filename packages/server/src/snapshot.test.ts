@@ -29,7 +29,7 @@ describe('snapshotFor', () => {
     expect(other.rack).toBeNull();
     expect(other.rackCount).toBe(7);
     expect(snap.bagCount).toBe(100 - 14);
-    expect((snap as Record<string, unknown>).bag).toBeUndefined();
+    expect((snap as unknown as Record<string, unknown>).bag).toBeUndefined();
   });
 
   it('spectator snapshot hides all racks', () => {
@@ -51,9 +51,9 @@ describe('snapshotFor', () => {
     const snapForOther = snapshotFor(room, bId);
     const snapForSpectator = snapshotFor(room, null);
     expect(snapForMover.lastMove).not.toBeNull();
-    expect((snapForMover.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
-    expect((snapForOther.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
-    expect((snapForSpectator.lastMove as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect((snapForMover.lastMove as unknown as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect((snapForOther.lastMove as unknown as Record<string, unknown>).drawnTileIds).toBeUndefined();
+    expect((snapForSpectator.lastMove as unknown as Record<string, unknown>).drawnTileIds).toBeUndefined();
     expect(snapForMover.lastMove?.score).toBe(12);
     expect(snapForMover.lastMove?.words).toEqual(['CAT']);
   });
