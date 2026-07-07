@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGame } from '../store';
 
@@ -5,8 +6,15 @@ export function VoteSheet() {
   const snapshot = useGame(s => s.snapshot);
   const playerId = useGame(s => s.playerId);
   const vote = useGame(s => s.vote);
+  const [error, setError] = useState<string | null>(null);
   const pending = snapshot?.pendingVote;
   if (!pending) return null;
+
+  const cast = async (allow: boolean) => {
+    setError(null);
+    const res = await vote(allow);
+    if (!res.ok) setError(res.error ?? 'Vote failed.');
+  };
 
   const canVote = playerId != null
     && pending.eligibleVoterIds.includes(playerId)
@@ -30,12 +38,13 @@ export function VoteSheet() {
       </p>
       {canVote ? (
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-          <button className="btn" onClick={() => vote(true)}>👍 Let it stand</button>
-          <button className="btn primary" onClick={() => vote(false)}>👎 No way</button>
+          <button className="btn" onClick={() => cast(true)}>👍 Let it stand</button>
+          <button className="btn primary" onClick={() => cast(false)}>👎 No way</button>
         </div>
       ) : (
         <p>Votes in: {voted}/{needed} 🗳️</p>
       )}
+      {error && <p style={{ color: 'var(--pop-pink)', margin: '8px 0 0' }}>{error}</p>}
     </motion.div>
   );
 }
