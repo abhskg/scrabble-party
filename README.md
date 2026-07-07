@@ -71,8 +71,8 @@ Automated as part of building this project:
   Playwright-driven browser session created a room from `#/host`, joined
   it as two players from `#/?room=<code>`, watched the lobby update live
   on the big screen as each player joined, started the game, and confirmed
-  the board, racks, bag count (200-tile bag minus dealt tiles), and turn
-  indicator all rendered correctly.
+  the board, racks, bag count (100-tile two-player bag minus dealt tiles),
+  and turn indicator all rendered correctly.
 
 The following need a real phone and cannot be automated from a dev machine;
 they're the remaining manual checks before a real party:
