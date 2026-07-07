@@ -44,7 +44,7 @@ export function applyPlay(state: GameState, playerId: string, placements: Placem
     return fail('Blank tile needs a letter.');
 
   const valid = validatePlacement(state.board, placements);
-  if (!valid.ok) return fail((valid as { ok: false; reason: string }).reason);
+  if (!valid.ok) return fail(valid.reason);
 
   const { total, words } = scoreMove(state.board, placements);
   const board = state.board.map(r => [...r]);
