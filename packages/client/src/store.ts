@@ -67,10 +67,11 @@ export const useGame = create<GameStore>((set, get) => {
         }
         // Big-screen / host session: re-subscribe to the watch room after any
         // reconnect (Wi-Fi blip) or on a fresh page load, so the host tab
-        // never goes stale. Harmless alongside a player-seat reconnect above —
-        // the server just adds this socket to the room's watch broadcast.
+        // never goes stale. Only on the #/host route — localStorage is shared
+        // across tabs, so a player tab in the same browser must NOT join the
+        // watch room (the spectator snapshot would overwrite its own rack).
         const savedHost = loadHost();
-        if (savedHost) {
+        if (savedHost && window.location.hash.startsWith('#/host')) {
           socket.emit('room:watch', { code: savedHost.code }, (res: { ok: boolean }) => {
             if (res.ok) set({ roomCode: savedHost.code, hostToken: savedHost.hostToken ?? null });
             else localStorage.removeItem(HOST_KEY);
