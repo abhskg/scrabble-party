@@ -73,7 +73,7 @@ sequenceDiagram
         S->>E: startOverrideVote(state, …)
         S-->>P: ack { ok:true }
         S->>S: broadcast voting-phase snapshots
-        Note over P,S: players emit vote:cast; majority (tie → allow) resolves
+        Note over P,S: players emit vote-cast, majority resolves and ties allow
     else valid
         S->>S: room.game = state'
         S-->>P: ack { ok:true }
