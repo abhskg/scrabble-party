@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.local
 .playwright-mcp/
+.codegraph/
+CLAUDE.md
+bash.exe.stackdump
